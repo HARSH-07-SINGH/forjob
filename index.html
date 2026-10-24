@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Resource & Financial Ledger Portal</title>
+    <!-- Tailwind CSS & Inter Font -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
+
+    <!-- Secure Login Modal -->
+    <div id="loginModal" class="fixed inset-0 bg-slate-900 bg-opacity-75 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 space-y-6 border border-slate-200">
+            <div class="text-center">
+                <div class="w-14 h-14 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-2xl mx-auto mb-3 shadow-sm font-bold">🔐</div>
+                <h2 class="text-xl font-bold text-slate-900">Enterprise Portal Access</h2>
+                <p class="text-xs text-slate-500 mt-1">Authenticate to access the financial ledger</p>
+            </div>
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Access Password (Default: admin123)</label>
+                    <input type="password" id="loginPassword" placeholder="Enter secure password..." required class="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none text-sm transition">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl transition text-sm shadow-md">
+                    Authenticate & Launch
+                </button>
+            </form>
+            <div class="bg-slate-50 p-3 rounded-lg text-center text-xs text-slate-500 border border-slate-200">
+                Demo Credentials — Password: <span class="font-semibold text-slate-700">admin123</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Details Modal -->
+    <div id="detailsModal" class="fixed inset-0 bg-slate-900 bg-opacity-75 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4 border border-slate-200">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 id="modalTitle" class="text-base font-bold text-slate-900">Transaction Item Breakdown</h3>
+                <button onclick="closeDetailsModal()" class="text-slate-400 hover:text-slate-700 text-lg font-bold">&times;</button>
+            </div>
+            
+            <!-- Metadata Grid -->
+            <div class="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div><span class="text-slate-400">Bill Date:</span> <span id="modalDate" class="font-semibold text-slate-800"></span></div>
+                <div><span class="text-slate-400">Category:</span> <span id="modalCategory" class="font-semibold text-slate-800"></span></div>
+                <div><span class="text-slate-400">Purchased By:</span> <span id="modalBuyer" class="font-semibold text-blue-600"></span></div>
+                <div><span class="text-slate-400">Vendor / Shop:</span> <span id="modalVendor" class="font-semibold text-indigo-600"></span></div>
+                <div><span class="text-slate-400">Payment Date:</span> <span id="modalPayDate" class="font-semibold text-emerald-700"></span></div>
+                <div><span class="text-slate-400">Payment Method:</span> <span id="modalPayMethod" class="font-semibold text-slate-800"></span></div>
+                <div class="col-span-2"><span class="text-slate-400">Payment Done By:</span> <span id="modalPayBy" class="font-semibold text-slate-900"></span></div>
+            </div>
+
+            <!-- Items Table -->
+            <div class="border rounded-xl overflow-hidden">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-slate-50 text-slate-500 border-b">
+                        <tr>
+                            <th class="p-2.5 font-semibold">Item Description</th>
+                            <th class="p-2.5 font-semibold text-right">Amount (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modalItemsList" class="divide-y divide-slate-100">
+                        <!-- Dynamic items -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Financial Totals -->
+            <div class="space-y-1 pt-2 border-t text-xs">
+                <div class="flex justify-between"><span class="text-slate-500">Total Amount:</span> <span id="modalTotal" class="font-bold text-slate-900"></span></div>
+                <div class="flex justify-between"><span class="text-slate-500">Paid Amount:</span> <span id="modalPaid" class="font-bold text-emerald-600"></span></div>
+                <div class="flex justify-between"><span class="text-slate-500">Pending Amount:</span> <span id="modalPending" class="font-bold text-rose-600"></span></div>
+            </div>
+
+            <button onclick="closeDetailsModal()" class="w-full bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-xl text-xs font-semibold transition mt-2">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Dashboard Container -->
+    <div id="dashboardApp" class="hidden min-h-screen flex flex-col justify-between">
+        <div>
+            <!-- Header -->
+            <header class="bg-slate-900 text-white shadow-lg py-4 px-6 no-print border-b border-slate-800">
+                <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-lg text-white shadow">FL</div>
+                        <div>
+                            <h1 class="text-lg font-bold tracking-tight">Enterprise Financial Ledger & Payment Tracker</h1>
+                            <p class="text-slate-400 text-xs">Itemized expenditure auditing, payment status & vendor tracking</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="bg-slate-800 px-3.5 py-2 rounded-lg text-xs border border-slate-700 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span>Operator: <strong class="text-slate-200">Harsh Singh</strong></span>
+                        </div>
+                        <button onclick="logout()" class="bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition shadow-sm">
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Content Area -->
+            <main class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+
+                <!-- Summary Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 no-print">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Records</p>
+                            <h3 id="totalRecords" class="text-2xl font-bold text-slate-900 mt-1">0</h3>
+                        </div>
+                        <div class="p-3 bg-blue-50 text-blue-600 rounded-xl text-xl">📁</div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Expenditure</p>
+                            <h3 id="totalAmount" class="text-2xl font-bold text-slate-900 mt-1">₹0</h3>
+                        </div>
+                        <div class="p-3 bg-indigo-50 text-indigo-600 rounded-xl text-xl">💳</div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Paid</p>
+                            <h3 id="totalPaid" class="text-2xl font-bold text-emerald-600 mt-1">₹0</h3>
+                        </div>
+                        <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl text-xl">✅</div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Pending</p>
+                            <h3 id="totalPending" class="text-2xl font-bold text-rose-600 mt-1">₹0</h3>
+                        </div>
+                        <div class="p-3 bg-rose-50 text-rose-600 rounded-xl text-xl">⏳</div>
+                    </div>
+                </div>
+
+                <!-- Core Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <!-- Entry Form -->
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 lg:col-span-1 no-print">
+                        <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 pb-3 border-b border-slate-100 flex items-center gap-2">
+                            <span>📝</span> New Transaction & Payment Entry
+                        </h2>
+                        <form id="dataForm" class="space-y-3.5">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Bill Date</label>
+                                    <input type="date" id="entryDate" required class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs bg-slate-50 focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Category</label>
+                                    <select id="entryCategory" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs bg-slate-50 focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                                        <option value="Voucher Expense">Voucher Expense</option>
+                                        <option value="Data Entry Log">Data Entry Log</option>
+                                        <option value="Infrastructure">Infrastructure</option>
+                                        <option value="General Audit">General Audit</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">Voucher / Bill Title</label>
+                                <input type="text" id="entryTitle" placeholder="e.g., Office Stationery & Binders" required class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs bg-slate-50 focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Purchased By</label>
+                                    <input type="text" id="entryBuyer" placeholder="e.g., Harsh Singh" required class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs bg-slate-50 focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Shop / Vendor</label>
+                                    <input type="text" id="entryVendor" placeholder="e.g., Sharma Book Depot" required class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs bg-slate-50 focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                                </div>
+                            </div>
+
+                            <!-- Dynamic Items Section -->
+                            <div class="space-y-2 border-t pt-3">
+                                <div class="flex justify-between items-center">
+                                    <label class="block text-xs font-bold text-slate-700 uppercase">Items Included</label>
+                                    <button type="button" onclick="addItemRow()" class="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-2.5 py-1 rounded-lg font-semibold transition">+ Add Item</button>
+                                </div>
+                                <div id="itemsContainer" class="space-y-2 max-h-32 overflow-y-auto pr-1">
+                                    <div class="flex gap-2 item-row">
+                                        <input type="text" placeholder="Item name" required class="w-3/5 px-3 py-1.5 border rounded-lg text-xs bg-slate-50 item-name">
+                                        <input type="number" placeholder="Price (₹)" required class="w-2/5 px-3 py-1.5 border rounded-lg text-xs bg-slate-50 item-price" oninput="calculateTotalAmount()">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Payment Details Section -->
+                            <div class="space-y-3 border-t pt-3 bg-slate-50 p-3 rounded-xl">
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-600 mb-1">Total Amount (₹)</label>
+                                        <input type="number" id="entryAmount" readonly class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs bg-slate-200 font-bold text-slate-800" placeholder="Auto">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-600 mb-1">Paid Amount (₹)</label>
+                                        <input type="number" id="entryPaid" placeholder="0.00" required class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-600 mb-1">Payment Date</label>
+                                        <input type="date" id="paymentDate" required class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-600 mb-1">Payment Method</label>
+                                        <select id="paymentMethod" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                                            <option value="Cash">Cash</option>
+                                            <option value="Online / UPI">Online / UPI</option>
+                                            <option value="Bank Transfer">Bank Transfer</option>
+                                            <option value="Cheque">Cheque</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Payment Done By</label>
+                                    <input type="text" id="paymentDoneBy" placeholder="e.g., Harsh Singh (Operator)" required class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                                </div>
+                            </div>
+
+                            <button type="submit" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium py-3 rounded-xl transition text-sm shadow-sm mt-2">
+                                Save Full Transaction
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Table & Management Section -->
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 lg:col-span-2 flex flex-col">
+                        <!-- Filters Header -->
+                        <div class="flex flex-col sm:flex-row justify-between items-center mb-4 pb-3 border-b border-slate-100 gap-3 no-print">
+                            <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                                <span>📋</span> Financial Ledger & Payment Records
+                            </h2>
+                            <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+                                <!-- Status Filter -->
+                                <select id="statusFilter" onchange="filterData()" class="px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold bg-slate-50 focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                                    <option value="">All Statuses</option>
+                                    <option value="Paid">Paid Only</option>
+                                    <option value="Partial">Partial Only</option>
+                                    <option value="Pending">Pending Only</option>
+                                </select>
+                                <!-- Month Filter -->
+                                <select id="monthFilter" onchange="filterData()" class="px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold bg-slate-50 focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                                    <option value="">All Months</option>
+                                    <option value="2026-10">October 2026</option>
+                                    <option value="2026-09">September 2026</option>
+                                    <option value="2026-08">August 2026</option>
+                                </select>
+                                <input type="text" id="searchInput" placeholder="Search..." class="px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 focus:outline-none w-full sm:w-28 bg-slate-50">
+                                <button onclick="exportToCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-xs font-semibold transition shadow-sm whitespace-nowrap">
+                                    📥 CSV
+                                </button>
+                                <button onclick="window.print()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl text-xs font-semibold transition shadow-sm whitespace-nowrap">
+                                    🖨️ Print
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Print-Only Header -->
+                        <div class="hidden print-only mb-6 text-center border-b pb-4">
+                            <h2 class="text-2xl font-bold text-slate-900">ENTERPRISE VENDOR & PAYMENT REPORT</h2>
+                            <p class="text-xs text-slate-500 mt-1">Generated by: Harsh Singh | Date: <span id="printDate"></span></p>
+                        </div>
+
+                        <!-- Data Table -->
+                        <div class="overflow-x-auto flex-grow">
+                            <table class="w-full text-left border-collapse text-sm">
+                                <thead>
+                                    <tr class="bg-slate-50 text-slate-500 uppercase text-xs tracking-wider border-b border-slate-200">
+                                        <th class="p-3 font-semibold">Date</th>
+                                        <th class="p-3 font-semibold">Title / Vendor</th>
+                                        <th class="p-3 font-semibold">Total (₹)</th>
+                                        <th class="p-3 font-semibold">Paid (₹)</th>
+                                        <th class="p-3 font-semibold">Pending (₹)</th>
+                                        <th class="p-3 font-semibold text-center">Status</th>
+                                        <th class="p-3 font-semibold text-center">Details</th>
+                                        <th class="p-3 font-semibold text-center no-print">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableBody" class="divide-y divide-slate-100">
+                                    <!-- Dynamic rows injected here -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Empty State -->
+                        <div id="emptyState" class="hidden text-center py-16 text-slate-400">
+                            <p class="text-3xl mb-2">📭</p>
+                            <p class="text-sm font-medium">No records found matching the filters.</p>
+                        </div>
+                    </div>
+
+                </div>
+            </main>
+        </div>
+
+        <!-- Footer -->
+        <footer class="text-center py-6 text-xs text-slate-400 border-t border-slate-200 mt-10 no-print bg-white">
+            Enterprise Financial Ledger &copy; 2026 | Built for Corporate Presentations
+        </footer>
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('corp_payment_v5') === 'true') {
+                document.getElementById('loginModal').classList.add('hidden');
+                document.getElementById('dashboardApp').classList.remove('hidden');
+                filterData();
+            }
+            document.getElementById('printDate').innerText = new Date().toLocaleDateString('en-GB');
+            document.getElementById('entryDate').valueAsDate = new Date();
+            document.getElementById('paymentDate').valueAsDate = new Date();
+        });
+
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const pass = document.getElementById('loginPassword').value;
+            if (pass === 'admin123') {
+                localStorage.setItem('corp_payment_v5', 'true');
+                document.getElementById('loginModal').classList.add('hidden');
+                document.getElementById('dashboardApp').classList.remove('hidden');
+                filterData();
+            } else {
+                alert('Authentication Failed: Incorrect password. (Use admin123)');
+            }
+        });
+
+        function logout() {
+            localStorage.removeItem('corp_payment_v5');
+            location.reload();
+        }
+
+        let records = JSON.parse(localStorage.getItem('corp_payment_records_v5')) || [
+            { 
+                id: 1, 
+                date: '2026-10-24', 
+                title: 'Quarterly Office Stationery & Binders', 
+                category: 'Voucher Expense', 
+                buyer: 'Harsh Singh',
+                vendor: 'Sharma Book Depot',
+                amount: 3500, 
+                paid: 3500,
+                payDate: '2026-10-24',
+                payMethod: 'Online / UPI',
+                payDoneBy: 'Harsh Singh',
+                items: [
+                    { name: 'A4 Copier Paper (2 Boxes)', price: 1500 },
+                    { name: 'File Folders & Binders', price: 1200 },
+                    { name: 'Permanent Markers & Pens', price: 800 }
+                ]
+            },
+            { 
+                id: 2, 
+                date: '2026-10-20', 
+                title: 'Field Equipment Maintenance & Repairs', 
+                category: 'Infrastructure', 
+                buyer: 'Rajesh Verma',
+                vendor: 'Apex Tech Solutions',
+                amount: 5000, 
+                paid: 2000,
+                payDate: '2026-10-21',
+                payMethod: 'Cash',
+                payDoneBy: 'Rajesh Verma',
+                items: [
+                    { name: 'GPS Device Battery Replacement', price: 3000 },
+                    { name: 'Radio Handset Antenna Repair', price: 2000 }
+                ]
+            },
+            { 
+                id: 3, 
+                date: '2026-09-15', 
+                title: 'September Data Entry Software License', 
+                category: 'Data Entry Log', 
+                buyer: 'Harsh Singh',
+                vendor: 'Cloud Services Ltd',
+                amount: 1500, 
+                paid: 0,
+                payDate: 'N/A',
+                payMethod: 'Pending',
+                payDoneBy: 'N/A',
+                items: [
+                    { name: 'Annual Portal Hosting & SSL', price: 1500 }
+                ]
+            }
+        ];
+
+        const form = document.getElementById('dataForm');
+        const tableBody = document.getElementById('tableBody');
+        const searchInput = document.getElementById('searchInput');
+        const monthFilter = document.getElementById('monthFilter');
+        const statusFilter = document.getElementById('statusFilter');
+        const totalRecordsEl = document.getElementById('totalRecords');
+        const totalAmountEl = document.getElementById('totalAmount');
+        const totalPaidEl = document.getElementById('totalPaid');
+        const totalPendingEl = document.getElementById('totalPending');
+        const emptyStateEl = document.getElementById('emptyState');
+
+        function addItemRow() {
+            const container = document.getElementById('itemsContainer');
+            const row = document.createElement('div');
+            row.className = "flex gap-2 item-row";
+            row.innerHTML = `
+                <input type="text" placeholder="Item name" required class="w-3/5 px-3 py-1.5 border rounded-lg text-xs bg-slate-50 item-name">
+                <input type="number" placeholder="Price (₹)" required class="w-2/5 px-3 py-1.5 border rounded-lg text-xs bg-slate-50 item-price" oninput="calculateTotalAmount()">
+                <button type="button" onclick="this.parentElement.remove(); calculateTotalAmount();" class="text-rose-500 font-bold px-1.5 text-xs">&times;</button>
+            `;
+            container.appendChild(row);
+        }
+
+        function calculateTotalAmount() {
+            const priceInputs = document.querySelectorAll('.item-price');
+            let sum = 0;
+            priceInputs.forEach(input => {
+                sum += parseFloat(input.value) || 0;
+            });
+            document.getElementById('entryAmount').value = sum;
+            document.getElementById('entryPaid').value = sum; // Default paid equals total
+        }
+
+        function filterData() {
+            const selectedMonth = monthFilter.value;
+            const selectedStatus = statusFilter.value;
+            const query = searchInput.value.toLowerCase();
+
+            const filtered = records.filter(item => {
+                const total = Number(item.amount) || 0;
+                const paid = Number(item.paid) || 0;
+                const pending = total - paid;
+
+                let currentStatus = 'Paid';
+                if (pending > 0 && paid > 0) currentStatus = 'Partial';
+                else if (paid === 0) currentStatus = 'Pending';
+
+                const matchesMonth = selectedMonth ? item.date.startsWith(selectedMonth) : true;
+                const matchesStatus = selectedStatus ? currentStatus === selectedStatus : true;
+                const matchesSearch = item.title.toLowerCase().includes(query) || 
+                                      item.vendor.toLowerCase().includes(query) || 
+                                      item.buyer.toLowerCase().includes(query);
+
+                return matchesMonth && matchesStatus && matchesSearch;
+            });
+
+            renderTable(filtered);
+        }
+
+        function renderTable(dataToRender) {
+            tableBody.innerHTML = '';
+            
+            let sumAmount = 0;
+            let sumPaid = 0;
+            let sumPending = 0;
+
+            if (dataToRender.length === 0) {
+                emptyStateEl.classList.remove('hidden');
+            } else {
+                emptyStateEl.classList.add('hidden');
+                dataToRender.forEach((item) => {
+                    const total = Number(item.amount) || 0;
+                    const paid = Number(item.paid) || 0;
+                    const pending = total - paid;
+
+                    sumAmount += total;
+                    sumPaid += paid;
+                    sumPending += pending;
+
+                    let statusBadge = '';
+                    if (pending === 0) {
+                        statusBadge = '<span class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full text-[10px] font-semibold">Paid</span>';
+                    } else if (paid > 0) {
+                        statusBadge = '<span class="bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-0.5 rounded-full text-[10px] font-semibold">Partial</span>';
+                    } else {
+                        statusBadge = '<span class="bg-rose-50 text-rose-700 border border-rose-200 px-2.5 py-0.5 rounded-full text-[10px] font-semibold">Pending</span>';
+                    }
+
+                    const row = document.createElement('tr');
+                    row.className = "hover:bg-slate-50 transition text-xs";
+                    row.innerHTML = `
+                        <td class="p-3 text-slate-600 font-medium">${item.date}</td>
+                        <td class="p-3 font-semibold text-slate-900">
+                            ${item.title}
+                            <div class="text-[10px] font-normal text-slate-500">Shop/Vendor: <strong class="text-indigo-600">${item.vendor}</strong></div>
+                        </td>
+                        <td class="p-3 font-bold text-slate-900">₹${total.toLocaleString('en-IN')}</td>
+                        <td class="p-3 font-bold text-emerald-600">₹${paid.toLocaleString('en-IN')}</td>
+                        <td class="p-3 font-bold text-rose-600">₹${pending.toLocaleString('en-IN')}</td>
+                        <td class="p-3 text-center">${statusBadge}</td>
+                        <td class="p-3 text-center">
+                            <button onclick="openDetailsModal(${item.id})" class="bg-blue-50 text-blue-600 hover:bg-blue-100 px-2.5 py-1 rounded-lg font-semibold transition">View Details</button>
+                        </td>
+                        <td class="p-3 text-center no-print">
+                            <button onclick="deleteRecord(${item.id})" class="text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded-lg transition font-medium">Delete</button>
+                        </td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            }
+
+            totalRecordsEl.innerText = dataToRender.length;
+            totalAmountEl.innerText = `₹${sumAmount.toLocaleString('en-IN')}`;
+            totalPaidEl.innerText = `₹${sumPaid.toLocaleString('en-IN')}`;
+            totalPendingEl.innerText = `₹${sumPending.toLocaleString('en-IN')}`;
+            
+            localStorage.setItem('corp_payment_records_v5', JSON.stringify(records));
+        }
+
+        function openDetailsModal(id) {
+            const record = records.find(r => r.id === id);
+            if (!record) return;
+
+            document.getElementById('modalTitle').innerText = record.title;
+            document.getElementById('modalDate').innerText = record.date;
+            document.getElementById('modalCategory').innerText = record.category;
+            document.getElementById('modalBuyer').innerText = record.buyer;
+            document.getElementById('modalVendor').innerText = record.vendor;
+            document.getElementById('modalPayDate').innerText = record.payDate || 'N/A';
+            document.getElementById('modalPayMethod').innerText = record.payMethod || 'N/A';
+            document.getElementById('modalPayBy').innerText = record.payDoneBy || 'N/A';
+
+            const listEl = document.getElementById('modalItemsList');
+            listEl.innerHTML = '';
+
+            if (record.items && record.items.length > 0) {
+                record.items.forEach(i => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="p-2.5 text-slate-700">${i.name}</td>
+                        <td class="p-2.5 text-right font-semibold text-slate-900">₹${Number(i.price).toLocaleString('en-IN')}</td>
+                    `;
+                    listEl.appendChild(tr);
+                });
+            } else {
+                listEl.innerHTML = `<tr><td colspan="2" class="p-3 text-center text-slate-400">No itemized breakdown provided.</td></tr>`;
+            }
+
+            const total = Number(record.amount) || 0;
+            const paid = Number(record.paid) || 0;
+            const pending = total - paid;
+
+            document.getElementById('modalTotal').innerText = `₹${total.toLocaleString('en-IN')}`;
+            document.getElementById('modalPaid').innerText = `₹${paid.toLocaleString('en-IN')}`;
+            document.getElementById('modalPending').innerText = `₹${pending.toLocaleString('en-IN')}`;
+
+            document.getElementById('detailsModal').classList.remove('hidden');
+        }
+
+        function closeDetailsModal() {
+            document.getElementById('detailsModal').classList.add('hidden');
+        }
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const itemRows = document.querySelectorAll('.item-row');
+            let itemsList = [];
+            itemRows.forEach(row => {
+                const name = row.querySelector('.item-name').value;
+                const price = parseFloat(row.querySelector('.item-price').value) || 0;
+                if (name) itemsList.push({ name, price });
+            });
+
+            const newRecord = {
+                id: Date.now(),
+                date: document.getElementById('entryDate').value,
+                title: document.getElementById('entryTitle').value,
+                buyer: document.getElementById('entryBuyer').value,
+                vendor: document.getElementById('entryVendor').value,
+                category: document.getElementById('entryCategory').value,
+                amount: parseFloat(document.getElementById('entryAmount').value) || 0,
+                paid: parseFloat(document.getElementById('entryPaid').value) || 0,
+                payDate: document.getElementById('paymentDate').value,
+                payMethod: document.getElementById('paymentMethod').value,
+                payDoneBy: document.getElementById('paymentDoneBy').value,
+                items: itemsList
+            };
+
+            records.unshift(newRecord);
+            filterData();
+            form.reset();
+            document.getElementById('entryDate').valueAsDate = new Date();
+            document.getElementById('paymentDate').valueAsDate = new Date();
+            
+            document.getElementById('itemsContainer').innerHTML = `
+                <div class="flex gap-2 item-row">
+                    <input type="text" placeholder="Item name (e.g. A4 Paper)" required class="w-3/5 px-3 py-1.5 border rounded-lg text-xs bg-slate-50 item-name">
+                    <input type="number" placeholder="Price (₹)" required class="w-2/5 px-3 py-1.5 border rounded-lg text-xs bg-slate-50 item-price" oninput="calculateTotalAmount()">
+                </div>
+            `;
+        });
+
+        function deleteRecord(id) {
+            records = records.filter(item => item.id !== id);
+            filterData();
+        }
+
+        searchInput.addEventListener('input', filterData);
+        monthFilter.addEventListener('change', filterData);
+        statusFilter.addEventListener('change', filterData);
+
+        function exportToCSV() {
+            let csvContent = "data:text/csv;charset=utf-8,Date,Title,Buyer,Vendor,Category,Total Amount,Paid Amount,Pending Amount,Payment Date,Payment Method,Payment Done By\n";
+            records.forEach(row => {
+                const pending = row.amount - row.paid;
+                csvContent += `"${row.date}","${row.title}","${row.buyer}","${row.vendor}","${row.category}",${row.amount},${row.paid},${pending},"${row.payDate}","${row.payMethod}","${row.payDoneBy}"\n`;
+            });
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "enterprise_ledger_payment_tracked.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
